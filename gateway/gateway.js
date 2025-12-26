@@ -42,7 +42,7 @@ app.use((req, res, next) => {
 const authenticate = (req, res, next) => {
   // Use req.path for exact path matching without query params
   const requestPath = req.path;
-  const publicPaths = ['/auth/login', '/auth/register', '/health', '/'];
+  const publicPaths = ['/login', '/register', '/health', '/'];
   
   if (publicPaths.includes(requestPath)) {
     return next();
@@ -204,12 +204,12 @@ async function proxyRequest(req, res) {
 }
 
 // ====================
-// ROUTE DEFINITIONS (COMPLETE SET)
+// ROUTE DEFINITIONS (UPDATED - MATCHES FLASK ROUTES)
 // ====================
 
-// Public routes (no auth required) - ALL HTTP METHODS
-app.all('/auth/login', createProxyHandler(false));
-app.all('/auth/register', createProxyHandler(false));
+// Public routes (no auth required) - MATCH YOUR FLASK ENDPOINTS
+app.all('/login', createProxyHandler(false));
+app.all('/register', createProxyHandler(false));
 
 // School onboarding routes (auth required)
 app.all('/schools/join', createProxyHandler(true));
@@ -260,13 +260,13 @@ app.get('/health', async (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     service: 'Echo Schools Platform Gateway',
-    version: '1.1',
+    version: '1.2',
     status: 'operational',
     documentation: 'Routes proxy to Flask backend',
     endpoints: {
       auth: [
-        'POST /auth/login',
-        'POST /auth/register'
+        'POST /login',
+        'POST /register'
       ],
       schools: [
         'POST /schools/join (auth required)',
@@ -321,13 +321,13 @@ server.listen(PORT, () => {
   ╔═══════════════════════════════════════╗
   ║       Echo Gateway - PRODUCTION       ║
   ╠═══════════════════════════════════════╣
-  ║  Status:    FIXED & STABLE            ║
+  ║  Status:    UPDATED TO MATCH FLASK    ║
   ║  HTTP:      http://localhost:${PORT}      ║
   ║  Backend:   ${PYTHON_BACKEND}  ║
   ║  WebSocket: ws://localhost:${PORT}/ws     ║
   ╚═══════════════════════════════════════╝
   
-  ✅ Public routes: /auth/login, /auth/register
+  ✅ Public routes: /login, /register
   ✅ School routes: /schools/join, /schools/create-and-join
   ✅ Protected API: All /api/* routes
   ✅ Health check: GET /health (always returns 200)
