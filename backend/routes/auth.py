@@ -1,7 +1,10 @@
-from flask import Blueprint, request, jsonify
+# routes/auth.py - COMPLETE FIXED VERSION
+import re
+import jwt
+from datetime import datetime, timedelta
+from flask import Blueprint, request, jsonify, current_app
 from app import db
 from models.user import User
-import re
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -63,7 +66,7 @@ def register_user():
 @auth_bp.route('/login', methods=['POST'])
 def login():
     """
-    Login existing user
+    Login existing user - FIXED VERSION WITH REAL JWT TOKENS
     """
     data = request.get_json()
     
@@ -78,10 +81,43 @@ def login():
     if not user.is_active():
         return jsonify({'error': 'Account is not active. Please contact administrator.'}), 403
     
+    # ✅✅✅ FIXED: Generate REAL JWT Token (NOT placeholder)
+    # Create token payload with user info
+    token_payload = {
+        'user_id': str(user.id),
+        'email': user.email,
+        'role': user.role,
+        'school_id': str(user.school_id) if user.school_id else None,
+        'exp': datetime.utcnow() + timedelta(days=1)  # Token expires in 1 day
+    }
+    
+    # Get secret key from environment
+    # First try Flask config, then environment variable
+    secret_key = current_app.config.get('SECRET_KEY')
+    if not secret_key:
+        # Fallback to environment variable
+        import os
+        secret_key = os.environ.get('SECRET_KEY')
+        
+    # If still no secret key, use a temporary one (for testing)
+    if not secret_key:
+        secret_key = 'temporary-secret-key-for-testing-only'
+        print("⚠️ WARNING: Using temporary secret key. Set SECRET_KEY in production!")
+    
+    # Generate the actual JWT token
+    try:
+        token = jwt.encode(token_payload, secret_key, algorithm='HS256')
+        # If token is bytes (older PyJWT), convert to string
+        if not isinstance(token, str):
+            token = token.decode('utf-8')
+    except Exception as e:
+        print(f"❌ JWT generation error: {e}")
+        return jsonify({'error': 'Authentication error'}), 500
+    
     return jsonify({
         'message': 'Login successful',
         'user': user.to_dict(),
-        'token': 'jwt_token_placeholder'
+        'token': token  # ✅✅✅ REAL JWT token (NOT placeholder)
     })
 
 # ================= TEST ENDPOINT =================

@@ -1,7 +1,7 @@
 # app.py
 from flask import Flask, jsonify, request, render_template, Blueprint
 from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
@@ -22,16 +22,16 @@ def get_database_uri():
     if db_url:
         if db_url.startswith("postgres://"):
             db_url = db_url.replace("postgres://", "postgresql://", 1)
-        print("🐘 Using PostgreSQL (Railway)")
+        print("[DB] Using PostgreSQL (Railway)")
         return db_url
     
-    print("💻 Using SQLite (local development)")
+    print("[DB] Using SQLite (local development)")
     return "sqlite:///echo_platform.db"
 
 def register_blueprints(app):
     """Register all blueprints with proper error handling"""
     print("\n" + "="*60)
-    print("🔗 REGISTERING BLUEPRINTS")
+    print("[INIT] REGISTERING BLUEPRINTS")
     print("="*60)
     
     # List of all blueprints to register (in order of importance)
@@ -51,7 +51,7 @@ def register_blueprints(app):
     
     for module_name, bp_name in blueprints_to_register:
         try:
-            print(f"\n📦 Attempting: routes.{module_name}...")
+            print(f"\n[PKG] Attempting: routes.{module_name}...")
             
             # Import the module
             module = importlib.import_module(f'routes.{module_name}')
@@ -64,41 +64,41 @@ def register_blueprints(app):
                 # Register the blueprint
                 app.register_blueprint(blueprint)
                 registered_count += 1
-                print(f"   ✅ SUCCESS: Registered '{blueprint.name}'")
+                print(f"   [OK] SUCCESS: Registered '{blueprint.name}'")
                 
                 # Show what routes it provides
                 if hasattr(blueprint, 'deferred_functions'):
-                    print(f"   📍 Provides {len(blueprint.deferred_functions)} endpoint(s)")
+                    print(f"   [*] Provides {len(blueprint.deferred_functions)} endpoint(s)")
             else:
-                print(f"   ❌ FAILED: {bp_name} is not a Blueprint object")
+                print(f"   [ERR] FAILED: {bp_name} is not a Blueprint object")
                 
         except ImportError as e:
-            print(f"   ❌ FAILED: Cannot import routes.{module_name}")
+            print(f"   [ERR] FAILED: Cannot import routes.{module_name}")
             print(f"      Error: {e}")
         except AttributeError:
-            print(f"   ❌ FAILED: No '{bp_name}' found in routes.{module_name}")
+            print(f"   [ERR] FAILED: No '{bp_name}' found in routes.{module_name}")
         except Exception as e:
-            print(f"   ❌ FAILED: Error with routes.{module_name}")
+            print(f"   [ERR] FAILED: Error with routes.{module_name}")
             print(f"      Error: {e}")
             import traceback
             traceback.print_exc()
     
     print("\n" + "="*60)
-    print(f"📊 REGISTRATION SUMMARY")
+    print(f"[SUMMARY] REGISTRATION SUMMARY")
     print("="*60)
-    print(f"✅ Successfully registered: {registered_count}/{len(blueprints_to_register)} blueprints")
+    print(f"[OK] Successfully registered: {registered_count}/{len(blueprints_to_register)} blueprints")
     
     if registered_count == 0:
-        print("⚠️  WARNING: No blueprints registered! Check your routes/ directory.")
+        print("[WARN] WARNING: No blueprints registered! Check your routes/ directory.")
     elif registered_count < len(blueprints_to_register):
-        print("⚠️  WARNING: Some blueprints failed to register.")
+        print("[WARN] WARNING: Some blueprints failed to register.")
     else:
-        print("🎉 SUCCESS: All blueprints registered successfully!")
+        print("[OK] SUCCESS: All blueprints registered successfully!")
     
     # List all registered blueprints
-    print("\n📋 Registered Blueprints:")
+    print("\n[LIST] Registered Blueprints:")
     for name, blueprint in app.blueprints.items():
-        print(f"   • {name}: {blueprint}")
+        print(f"   - {name}: {blueprint}")
     
     print("="*60 + "\n")
 
@@ -106,17 +106,17 @@ def setup_database(app):
     """Setup database tables and handle migrations"""
     with app.app_context():
         try:
-            print("🔄 Setting up database...")
+            print("[INIT] Setting up database...")
             
             # Import all models to ensure they're registered
-            print("📦 Importing models...")
+            print("[IMPORT] Importing models...")
             from models.school import School
             from models.user import User
             from models.teacher import Teacher
             from models.student import Student
             from models.class_model import Class
             from models.subject import Subject
-            print("✅ All models imported")
+            print("[OK] All models imported")
             
             # Check if we're using PostgreSQL
             is_postgres = 'postgresql' in app.config['SQLALCHEMY_DATABASE_URI']
@@ -124,23 +124,22 @@ def setup_database(app):
             if is_postgres:
                 # For PostgreSQL, we should use migrations
                 try:
-                    from flask_migrate import upgrade
-                    print("🔄 Running migrations for PostgreSQL...")
+                    print("[MIGRATE] Running migrations for PostgreSQL...")
                     upgrade()
-                    print("✅ Migrations applied successfully")
+                    print("[OK] Migrations applied successfully")
                 except Exception as e:
-                    print(f"⚠️ Migration error, falling back to create_all: {e}")
+                    print(f"[WARN] Migration error, falling back to create_all: {e}")
                     db.create_all()
-                    print("✅ Tables created directly")
+                    print("[OK] Tables created directly")
             else:
                 # For SQLite, create tables directly
                 db.create_all()
-                print("✅ SQLite tables created")
+                print("[OK] SQLite tables created")
             
-            print("✅ Database setup complete")
+            print("[OK] Database setup complete")
             
         except Exception as e:
-            print(f"❌ Database setup error: {e}")
+            print(f"[ERR] Database setup error: {e}")
             import traceback
             traceback.print_exc()
 
@@ -376,18 +375,18 @@ if __name__ == '__main__':
     debug = os.environ.get('FLASK_ENV') == 'development'
     
     print("\n" + "="*60)
-    print("🚀 ECHO SCHOOL PLATFORM API")
+    print("[START] ECHO SCHOOL PLATFORM API")
     print("="*60)
-    print(f"🌍 Environment: {'Development' if debug else 'Production'}")
-    print(f"🔗 Port: {port}")
-    print(f"💾 Database: {app.config['SQLALCHEMY_DATABASE_URI'].split('://')[0]}")
-    print(f"🐛 Debug Mode: {debug}")
+    print(f"[ENV] Environment: {'Development' if debug else 'Production'}")
+    print(f"[PORT] Port: {port}")
+    print(f"[DB] Database: {app.config['SQLALCHEMY_DATABASE_URI'].split('://')[0]}")
+    print(f"[DEBUG] Debug Mode: {debug}")
     print("="*60)
-    print(f"📡 URL: http://localhost:{port}")
-    print(f"🩺 Health: http://localhost:{port}/health")
-    print(f"📖 Docs: http://localhost:{port}/docs")
-    print(f"🐛 Debug Routes: http://localhost:{port}/debug/routes")
-    print(f"🔧 Debug Blueprints: http://localhost:{port}/debug/blueprints")
+    print(f"[URL] URL: http://localhost:{port}")
+    print(f"[HEALTH] Health: http://localhost:{port}/health")
+    print(f"[DOCS] Docs: http://localhost:{port}/docs")
+    print(f"[DEBUG] Debug Routes: http://localhost:{port}/debug/routes")
+    print(f"[DEBUG] Debug Blueprints: http://localhost:{port}/debug/blueprints")
     print("="*60 + "\n")
     
     app.run(host='0.0.0.0', port=port, debug=debug)
