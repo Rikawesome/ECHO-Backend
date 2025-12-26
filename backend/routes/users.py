@@ -11,7 +11,7 @@ users_bp = Blueprint('users', __name__)
 # GET ALL USERS
 # -------------------------------
 @users_bp.route('/', methods=['GET'])
-@users_bp.route('', methods=['GET'])
+@users_bp.route('/', methods=['GET'])
 def get_users():
     """
     Get all users with filtering
@@ -118,7 +118,7 @@ def get_user(user_id):
 # CREATE USER (TEMP / DEV)
 # -------------------------------
 @users_bp.route("/", methods=["POST"])
-@users_bp.route("", methods=["POST"])
+@users_bp.route("/", methods=["POST"])
 def create_user():
     try:
         data = request.get_json()

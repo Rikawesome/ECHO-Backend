@@ -125,7 +125,7 @@ def get_class(class_id):
     
     return jsonify(class_data)
 
-@classes_bp.route('', methods=['POST'])
+@classes_bp.route('/', methods=['POST'])
 def create_class():
     """
     Create new class

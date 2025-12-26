@@ -106,7 +106,7 @@ def get_student(student_id):
     
     return jsonify(student_data)
 
-@students_bp.route('', methods=['POST'])
+@students_bp.route('/', methods=['POST'])
 def create_student():
     """
     Create new student

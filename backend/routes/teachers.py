@@ -91,7 +91,7 @@ def get_teacher(teacher_id):
     
     return jsonify(teacher_data)
 
-@teachers_bp.route('', methods=['POST'])
+@teachers_bp.route('/', methods=['POST'])
 def create_teacher():
     """
     Create new teacher (admin only)
