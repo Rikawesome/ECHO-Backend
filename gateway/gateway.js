@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 
 // ====================
-// CRITICAL CONFIGURATION - NO DEFAULTS FOR SECRETS
+// CRITICAL CONFIGURATION
 // ====================
 const PORT = process.env.PORT || 3000;
 const PYTHON_BACKEND = process.env.PYTHON_BACKEND || 'https://echo-backend.up.railway.app';
@@ -37,7 +37,7 @@ app.use((req, res, next) => {
 });
 
 // ====================
-// IMPROVED AUTHENTICATION MIDDLEWARE
+// AUTHENTICATION MIDDLEWARE (UPDATED)
 // ====================
 const authenticate = (req, res, next) => {
   // Use req.path for exact path matching without query params
@@ -62,21 +62,12 @@ const authenticate = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     
-    // Enhanced validation
-    if (!decoded.userId && !decoded.id && !decoded.user_id) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid token format',
-        code: 'INVALID_TOKEN'
-      });
-    }
-    
     // Standardize user object
     req.user = {
-      id: decoded.userId || decoded.id || decoded.user_id,
+      id: decoded.user_id || decoded.userId || decoded.id,
       email: decoded.email,
       role: decoded.role,
-      schoolId: decoded.schoolId
+      schoolId: decoded.school_id || decoded.schoolId
     };
     
     next();
@@ -94,14 +85,13 @@ const authenticate = (req, res, next) => {
 };
 
 // ====================
-// SIMPLIFIED WEBSOCKET (OPTIONAL - CAN BE COMMENTED OUT)
+// SIMPLIFIED WEBSOCKET
 // ====================
 const wss = new WebSocketServer({ server, path: '/ws' });
 const activeConnections = new Map();
 
 wss.on('connection', (ws, req) => {
   try {
-    // Parse token from query parameters
     const url = require('url').parse(req.url, true);
     const token = url.query.token;
 
@@ -111,7 +101,7 @@ wss.on('connection', (ws, req) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.userId || decoded.id || decoded.user_id;
+    const userId = decoded.user_id || decoded.userId || decoded.id;
     
     if (!userId) {
       ws.close(1008, 'Invalid token');
@@ -125,7 +115,6 @@ wss.on('connection', (ws, req) => {
       try {
         const message = JSON.parse(data.toString());
         console.log(`WebSocket message from ${userId}:`, message);
-        // Basic message handling - can be expanded
         if (message.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
         }
@@ -149,20 +138,17 @@ wss.on('connection', (ws, req) => {
 });
 
 // ====================
-// CORE PROXY FUNCTION (FIXED VERSION - NO DEADLOCK)
+// CORE PROXY FUNCTION
 // ====================
 const createProxyHandler = (requiresAuth = true) => {
   return async (req, res) => {
-    // Apply auth if required
     if (requiresAuth) {
       return new Promise((resolve) => {
         authenticate(req, res, () => {
-          // Authentication succeeded, now proxy the request
           proxyRequest(req, res).then(resolve).catch(resolve);
         });
       });
     } else {
-      // No auth required, just proxy
       await proxyRequest(req, res);
     }
   };
@@ -185,10 +171,9 @@ async function proxyRequest(req, res) {
         'x-forwarded-by': 'echo-gateway',
         host: new URL(PYTHON_BACKEND).host
       },
-      validateStatus: () => true // Pass through all status codes
+      validateStatus: () => true
     });
 
-    // Forward the response exactly as received
     res.status(response.status).json(response.data);
     
   } catch (error) {
@@ -204,33 +189,36 @@ async function proxyRequest(req, res) {
 }
 
 // ====================
-// ROUTE DEFINITIONS (UPDATED - MATCHES FLASK ROUTES)
+// ROUTE DEFINITIONS - FIXED TO MATCH FLASK!
 // ====================
 
-// Public routes (no auth required) - MATCH YOUR FLASK ENDPOINTS
+// 🔥 CRITICAL FIXES BELOW 🔥
+
+// Public routes (no auth required) - EXACT FLASK ROUTES
 app.all('/login', createProxyHandler(false));
 app.all('/register', createProxyHandler(false));
 
-// School onboarding routes (auth required)
-app.all('/schools/join', createProxyHandler(true));
-app.all('/schools/create-and-join', createProxyHandler(true));
+// School creation route - FLASK ROUTE IS /create-and-join (not /schools/create-and-join)
+app.all('/create-and-join', createProxyHandler(true));
 
-// Protected API routes (auth required)
-app.all('/api/schools*', createProxyHandler(true));
-app.all('/api/classes*', createProxyHandler(true));
-app.all('/api/teachers*', createProxyHandler(true));
-app.all('/api/students*', createProxyHandler(true));
-app.all('/api/subjects*', createProxyHandler(true));
-app.all('/api/grades*', createProxyHandler(true));
-app.all('/api/reports*', createProxyHandler(true));
-app.all('/api/payments*', createProxyHandler(true));
-app.all('/api/users*', createProxyHandler(true));
+// School join route
+app.all('/join', createProxyHandler(true));
 
-// Catch-all for other /api routes
-app.all('/api/*', createProxyHandler(true));
+// School API routes - Your Flask doesn't use /api prefix!
+app.all('/schools*', createProxyHandler(true));           // GET /schools, POST /schools, etc.
+app.all('/<school_id>*', createProxyHandler(true));       // Dynamic school routes
+
+// Other blueprint routes - no /api prefix!
+app.all('/teachers*', createProxyHandler(true));
+app.all('/students*', createProxyHandler(true));
+app.all('/classes*', createProxyHandler(true));
+app.all('/subjects*', createProxyHandler(true));
+app.all('/users*', createProxyHandler(true));
+app.all('/dashboard*', createProxyHandler(true));
+app.all('/utils*', createProxyHandler(true));
 
 // ====================
-// HEALTH & INFO ENDPOINTS (FIXED - ALWAYS RETURNS 200)
+// HEALTH & INFO ENDPOINTS
 // ====================
 app.get('/health', async (req, res) => {
   const healthData = {
@@ -244,7 +232,6 @@ app.get('/health', async (req, res) => {
   };
   
   try {
-    // Check backend but don't fail if it's down
     await axios.get(`${PYTHON_BACKEND}/health`, { timeout: 3000 });
     healthData.backend = 'connected';
   } catch (error) {
@@ -253,42 +240,43 @@ app.get('/health', async (req, res) => {
     healthData.backendError = error.message;
   }
   
-  // Always return 200 so Railway doesn't restart us
   res.status(200).json(healthData);
 });
 
 app.get('/', (req, res) => {
   res.json({
     service: 'Echo Schools Platform Gateway',
-    version: '1.2',
-    status: 'operational',
-    documentation: 'Routes proxy to Flask backend',
+    version: '1.3',
+    status: 'FIXED - Matches Flask routes',
+    documentation: 'Routes now correctly proxy to Flask backend',
     endpoints: {
       auth: [
         'POST /login',
         'POST /register'
       ],
       schools: [
-        'POST /schools/join (auth required)',
-        'POST /schools/create-and-join (auth required)'
+        'POST /create-and-join (auth required)',
+        'POST /join (auth required)',
+        'GET /schools (auth required)',
+        'GET /schools/<id> (auth required)'
       ],
-      api: [
-        '/api/schools/*',
-        '/api/classes/*',
-        '/api/teachers/*',
-        '/api/students/*',
-        '/api/grades/*',
-        '/api/reports/*'
+      management: [
+        '/teachers/*',
+        '/students/*',
+        '/classes/*',
+        '/subjects/*',
+        '/users/*',
+        '/dashboard/*'
       ],
       monitoring: 'GET /health',
       websocket: 'GET /ws?token=JWT_TOKEN'
     },
-    note: 'All /api/* routes require Authorization: Bearer <token> header'
+    note: 'All routes except /login and /register require Authorization: Bearer <token> header'
   });
 });
 
 // ====================
-// ERROR HANDLER (FIXED - NO req.id)
+// ERROR HANDLER
 // ====================
 app.use((err, req, res, next) => {
   console.error('🔴 Gateway error:', err.stack || err.message);
@@ -319,18 +307,19 @@ app.use((req, res) => {
 server.listen(PORT, () => {
   console.log(`
   ╔═══════════════════════════════════════╗
-  ║       Echo Gateway - PRODUCTION       ║
+  ║  Echo Gateway - FIXED FOR FLASK       ║
   ╠═══════════════════════════════════════╣
-  ║  Status:    UPDATED TO MATCH FLASK    ║
+  ║  Status:    MATCHING FLASK ROUTES     ║
   ║  HTTP:      http://localhost:${PORT}      ║
   ║  Backend:   ${PYTHON_BACKEND}  ║
   ║  WebSocket: ws://localhost:${PORT}/ws     ║
   ╚═══════════════════════════════════════╝
   
   ✅ Public routes: /login, /register
-  ✅ School routes: /schools/join, /schools/create-and-join
-  ✅ Protected API: All /api/* routes
-  ✅ Health check: GET /health (always returns 200)
-  ⚠️  JWT_SECRET: ${JWT_SECRET ? '✓ Set' : '✗ NOT SET - SERVER WILL EXIT'}
+  ✅ School creation: /create-and-join (auth)
+  ✅ School join: /join (auth)
+  ✅ All other routes: /schools, /teachers, etc.
+  ✅ Health check: GET /health
+  ⚠️  JWT_SECRET: ${JWT_SECRET ? '✓ Set' : '✗ NOT SET'}
   `);
 });
