@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Database
+*.db
+*.sqlite3
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Uploads
+uploads/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Railway specific
+/tmp/echo_*.db
+instance/
+
+# Alembic migrations
+#migrations/versions/*.py    <-- commented out so migrations are tracked
+!migrations/versions/
+migrations/env.py
+migrations/script.py.mako
+migrations/alembic.ini
+migrations/README
+
+# Additional Python
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyo
+*.pyd

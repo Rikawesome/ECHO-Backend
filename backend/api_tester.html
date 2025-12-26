@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Echo Platform API Docs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #020617;
+            --card: #020617;
+            --border: #1e293b;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --accent: #22c55e;
+            --accent-soft: #16a34a;
+            --danger: #ef4444;
+            --code-bg: #020617;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, system-ui, -apple-system, sans-serif;
+            background: linear-gradient(180deg, #020617, #020617);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(2, 6, 23, 0.95);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 26px;
+            letter-spacing: 0.4px;
+        }
+
+        .base-url {
+            margin-top: 6px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        main {
+            padding: 28px;
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        section {
+            margin-bottom: 36px;
+        }
+
+        h2 {
+            margin-bottom: 12px;
+            font-size: 22px;
+            border-left: 4px solid var(--accent);
+            padding-left: 12px;
+        }
+
+        .endpoint {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .method {
+            font-weight: 700;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: #022c22;
+        }
+
+        .url {
+            font-family: monospace;
+            font-size: 14px;
+            background: var(--code-bg);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            overflow-x: auto;
+        }
+
+        .description {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        button {
+            background: var(--accent);
+            color: #022c22;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.05s ease, opacity 0.15s ease;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 20px;
+            font-size: 13px;
+            max-height: 360px;
+            overflow: auto;
+        }
+
+        footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--muted);
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Echo Platform API</h1>
+    <div class="base-url">
+        Base URL:
+        <strong>https://echo-backend.up.railway.app</strong>
+    </div>
+</header>
+
+<main>
+
+    <!-- SYSTEM -->
+    <section>
+        <h2>System</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method">GET</span>
+                <div class="url">https://echo-backend.up.railway.app/health</div>
+                <button onclick="test('/health')">Test</button>
+            </div>
+            <div class="description">Health check endpoint</div>
+        </div>
+    </section>
+
+    <!-- USERS -->
+    <section>
+        <h2>Users</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method">POST</span>
+                <div class="url">https://echo-backend.up.railway.app/users/register</div>
+            </div>
+            <div class="description">Register a new user</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method">POST</span>
+                <div class="url">https://echo-backend.up.railway.app/users/login</div>
+            </div>
+            <div class="description">Login user</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method">GET</span>
+                <div class="url">https://echo-backend.up.railway.app/users/&lt;user_id&gt;</div>
+            </div>
+            <div class="description">Get user profile</div>
+        </div>
+    </section>
+
+    <!-- CLASSES -->
+    <section>
+        <h2>Classes</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method">GET</span>
+                <div class="url">https://echo-backend.up.railway.app/classes</div>
+                <button onclick="test('/classes')">Test</button>
+            </div>
+            <div class="description">List all classes</div>
+        </div>
+    </section>
+
+    <!-- SUBJECTS -->
+    <section>
+        <h2>Subjects</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method">GET</span>
+                <div class="url">https://echo-backend.up.railway.app/subjects</div>
+                <button onclick="test('/subjects')">Test</button>
+            </div>
+            <div class="description">List all subjects</div>
+        </div>
+    </section>
+
+    <!-- STUDENTS -->
+    <section>
+        <h2>Students</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method">GET</span>
+                <div class="url">https://echo-backend.up.railway.app/students</div>
+                <button onclick="test('/students')">Test</button>
+            </div>
+            <div class="description">List all students</div>
+        </div>
+    </section>
+
+    <!-- TEACHERS -->
+    <section>
+        <h2>Teachers</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method">GET</span>
+                <div class="url">https://echo-backend.up.railway.app/teachers</div>
+                <button onclick="test('/teachers')">Test</button>
+            </div>
+            <div class="description">List all teachers</div>
+        </div>
+    </section>
+
+    <pre id="result">Click a "Test" button to see response…</pre>
+
+</main>
+
+<footer>
+    Echo School Platform · API Documentation
+</footer>
+
+<script>
+    const BASE = 'https://echo-backend.up.railway.app';
+
+    async function test(path) {
+        const output = document.getElementById('result');
+        const url = BASE + path;
+
+        output.textContent = `Fetching ${url}...\n`;
+
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            output.textContent = JSON.stringify(data, null, 2);
+        } catch (err) {
+            output.textContent = 'Error: ' + err.message;
+        }
+    }
+</script>
+
+</body>
+</html>

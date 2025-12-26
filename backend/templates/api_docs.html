@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Echo Platform API Docs</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #020617;
+            --border: #1e293b;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --accent: #22c55e;
+            --accent-soft: #16a34a;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: Inter, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        header {
+            padding: 24px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(2, 6, 23, 0.95);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 26px;
+            letter-spacing: -0.5px;
+        }
+
+        .base-url {
+            margin-top: 6px;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .token-input {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            color: var(--text);
+            background: var(--card);
+            font-family: monospace;
+            font-size: 13px;
+            width: 300px;
+        }
+
+        main {
+            padding: 28px;
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        section {
+            margin-bottom: 36px;
+        }
+
+        h2 {
+            margin-bottom: 12px;
+            font-size: 22px;
+            border-left: 4px solid var(--accent);
+            padding-left: 12px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+        }
+
+        .endpoint {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 14px;
+        }
+
+        .endpoint-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .method {
+            font-weight: 700;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: #022c22;
+        }
+
+        .url {
+            font-family: monospace;
+            font-size: 14px;
+            background: #020617;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            overflow-x: auto;
+            flex: 1;
+        }
+
+        .description {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        button {
+            background: var(--accent);
+            color: #022c22;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.05s ease, opacity 0.15s ease;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        pre {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-top: 20px;
+            font-size: 13px;
+            max-height: 360px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--muted);
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .method.get { background: #3b82f6; }
+        .method.post { background: #10b981; }
+        .method.put { background: #f59e0b; }
+        .method.delete { background: #ef4444; }
+        .method.patch { background: #8b5cf6; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Echo Platform API</h1>
+    <div class="base-url">
+        Base URL: <strong id="base-url">https://echo-backend.up.railway.app</strong>
+    </div>
+    <div class="token-input">
+        <span style="font-size:13px; color: var(--muted);">JWT Token:</span>
+        <input type="text" id="jwtToken" placeholder="Bearer your-token">
+    </div>
+</header>
+
+<main>
+
+    <!-- AUTHENTICATION - UPDATED FOR NEW FLOW -->
+    <section>
+        <h2>Authentication</h2>
+
+        <!-- NEW: Basic User Registration -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/auth/register</div>
+                <button onclick="test('/auth/register', 'POST', {
+                    email: 'user@example.com',
+                    password: 'password123',
+                    first_name: 'John',
+                    last_name: 'Doe',
+                    phone: '08012345678'
+                })">Try It</button>
+            </div>
+            <div class="description"><strong>NEW:</strong> Register basic user account (no school yet)</div>
+        </div>
+
+        <!-- NEW: Join Existing School -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/schools/join</div>
+                <button onclick="test('/schools/join', 'POST', {
+                    user_id: 'user-uuid-here',
+                    registration_code: 'TCH-SCH123-ABC',
+                    role_type: 'teacher'
+                })">Try It</button>
+            </div>
+            <div class="description"><strong>NEW:</strong> Join existing school with registration code</div>
+        </div>
+
+        <!-- NEW: Create and Join School -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/schools/create-and-join</div>
+                <button onclick="test('/schools/create-and-join', 'POST', {
+                    user_id: 'user-uuid-here',
+                    school_name: 'My New Academy',
+                    school_type: 'secondary',
+                    address: '123 Education Lane',
+                    city: 'Lagos'
+                })">Try It</button>
+            </div>
+            <div class="description"><strong>NEW:</strong> Create school and join as owner</div>
+        </div>
+
+        <!-- Login (Updated) -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/auth/login</div>
+                <button onclick="test('/auth/login', 'POST', {
+                    email: 'user@example.com',
+                    password: 'password123'
+                })">Try It</button>
+            </div>
+            <div class="description">Login existing user</div>
+        </div>
+
+        <!-- DEPRECATED: Old Registration Endpoints -->
+        <div class="endpoint" style="opacity: 0.7; border: 1px dashed #f59e0b;">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/auth/register/school-owner</div>
+                <button onclick="alert('Deprecated: Use /auth/register + /schools/create-and-join')">Deprecated</button>
+            </div>
+            <div class="description"><strong>DEPRECATED:</strong> Use new user-first flow instead</div>
+        </div>
+
+        <div class="endpoint" style="opacity: 0.7; border: 1px dashed #f59e0b;">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/auth/register/teacher</div>
+                <button onclick="alert('Deprecated: Use /auth/register + /schools/join')">Deprecated</button>
+            </div>
+            <div class="description"><strong>DEPRECATED:</strong> Use new user-first flow instead</div>
+        </div>
+
+        <div class="endpoint" style="opacity: 0.7; border: 1px dashed #f59e0b;">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/auth/register/student</div>
+                <button onclick="alert('Deprecated: Use /auth/register + /schools/join')">Deprecated</button>
+            </div>
+            <div class="description"><strong>DEPRECATED:</strong> Use new user-first flow instead</div>
+        </div>
+    </section>
+
+    <!-- NEW: USER ONBOARDING FLOW SECTION -->
+    <section>
+        <h2>User Onboarding Flow</h2>
+
+        <div class="endpoint" style="background: rgba(34, 197, 94, 0.1);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="background: #16a34a; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Step 1</span>
+                <h3 style="margin: 0; font-size: 16px;">Register Basic User</h3>
+            </div>
+            <pre style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+POST /auth/register
+{
+    "email": "user@example.com",
+    "password": "password123",
+    "first_name": "John",
+    "last_name": "Doe",
+    "phone": "08012345678"
+}
+
+Response: User created with school_id = null
+            </pre>
+        </div>
+
+        <div class="endpoint" style="background: rgba(34, 197, 94, 0.1);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="background: #16a34a; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Step 2</span>
+                <h3 style="margin: 0; font-size: 16px;">Login & Choose School</h3>
+            </div>
+            <pre style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+POST /auth/login
+{
+    "email": "user@example.com",
+    "password": "password123"
+}
+
+Response: User logged in (no school yet)
+            </pre>
+        </div>
+
+        <div class="endpoint" style="background: rgba(34, 197, 94, 0.1);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="background: #16a34a; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Step 3A</span>
+                <h3 style="margin: 0; font-size: 16px;">Join Existing School</h3>
+            </div>
+            <pre style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+POST /schools/join
+{
+    "user_id": "user-uuid-from-step-1",
+    "registration_code": "TCH-SCH123-ABC",  # or student code
+    "role_type": "teacher"  # or "student"
+}
+
+Response: User joins school as teacher/student
+            </pre>
+        </div>
+
+        <div class="endpoint" style="background: rgba(34, 197, 94, 0.1);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="background: #16a34a; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">Step 3B</span>
+                <h3 style="margin: 0; font-size: 16px;">Create New School</h3>
+            </div>
+            <pre style="margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px;">
+POST /schools/create-and-join
+{
+    "user_id": "user-uuid-from-step-1",
+    "school_name": "My New Academy",
+    "school_type": "secondary",
+    "city": "Lagos"
+}
+
+Response: School created, user becomes owner
+            </pre>
+        </div>
+    </section>
+
+    <!-- SCHOOLS - UPDATED -->
+    <section>
+        <h2>Schools</h2>
+
+        <!-- Create School (Direct) -->
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/schools</div>
+                <button onclick="test('/schools', 'POST', {
+                    'name': 'New Academy',
+                    'school_type': 'senior',
+                    'address': '123 Main St',
+                    'city': 'Lagos',
+                    'state': 'Lagos',
+                    'country': 'Nigeria'
+                })">Try It</button>
+            </div>
+            <div class="description">Create new school (admin use)</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/schools</div>
+                <button onclick="test('/schools')">Try It</button>
+            </div>
+            <div class="description">List all schools with pagination and filtering</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/schools/&lt;school_id&gt;</div>
+                <button onclick="test('/schools/1')">Try It</button>
+            </div>
+            <div class="description">Get specific school details</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method put">PUT</span>
+                <div class="url">/schools/&lt;school_id&gt;</div>
+                <button onclick="test('/schools/1', 'PUT', {
+                    motto: 'Excellence in Education',
+                    contact_phone: '08098765432',
+                    website: 'https://echoacademy.dev'
+                })">Try It</button>
+            </div>
+            <div class="description">Update school information</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/schools/&lt;school_id&gt;/stats</div>
+                <button onclick="test('/schools/1/stats')">Try It</button>
+            </div>
+            <div class="description">Get school statistics and dashboard data</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/schools/&lt;school_id&gt;/regenerate-codes</div>
+                <button onclick="test('/schools/1/regenerate-codes', 'POST')">Try It</button>
+            </div>
+            <div class="description">Regenerate teacher/student registration codes</div>
+        </div>
+    </section>
+
+    <!-- TEACHERS - UPDATED PATHS -->
+    <section>
+        <h2>Teachers</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/teachers</div>
+                <button onclick="test('/teachers')">Try It</button>
+            </div>
+            <div class="description">List all teachers with filtering</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/teachers/&lt;teacher_id&gt;</div>
+                <button onclick="test('/teachers/1')">Try It</button>
+            </div>
+            <div class="description">Get teacher details with subjects and classes</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/teachers</div>
+                <button onclick="test('/teachers', 'POST', {
+                    school_id: '1',
+                    first_name: 'Michael',
+                    last_name: 'Brown',
+                    email: 'michael@echoacademy.dev',
+                    role: 'teacher',
+                    staff_number: 'EMP001'
+                })">Try It</button>
+            </div>
+            <div class="description">Create new teacher (admin only)</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method put">PUT</span>
+                <div class="url">/teachers/&lt;teacher_id&gt;</div>
+                <button onclick="test('/teachers/1', 'PUT', {
+                    phone: '08011223344',
+                    qualification: 'B.Sc Education'
+                })">Try It</button>
+            </div>
+            <div class="description">Update teacher information</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/teachers/&lt;teacher_id&gt;/subjects</div>
+                <button onclick="test('/teachers/1/subjects')">Try It</button>
+            </div>
+            <div class="description">Get all subjects taught by teacher</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/teachers/&lt;teacher_id&gt;/activate</div>
+                <button onclick="test('/teachers/1/activate', 'POST')">Try It</button>
+            </div>
+            <div class="description">Activate teacher account</div>
+        </div>
+    </section>
+
+    <!-- STUDENTS - UPDATED PATHS -->
+    <section>
+        <h2>Students</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/students</div>
+                <button onclick="test('/students')">Try It</button>
+            </div>
+            <div class="description">List all students with filtering</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/students/&lt;student_id&gt;</div>
+                <button onclick="test('/students/1')">Try It</button>
+            </div>
+            <div class="description">Get student details with class info</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/students</div>
+                <button onclick="test('/students', 'POST', {
+                    school_id: '1',
+                    first_name: 'David',
+                    last_name: 'Wilson',
+                    gender: 'male',
+                    class_id: '1',
+                    guardian_name: 'Mrs. Wilson',
+                    guardian_phone: '08011223344'
+                })">Try It</button>
+            </div>
+            <div class="description">Create new student</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method put">PUT</span>
+                <div class="url">/students/&lt;student_id&gt;</div>
+                <button onclick="test('/students/1', 'PUT', {
+                    guardian_phone: '08099887766',
+                    medical_info: 'Asthma'
+                })">Try It</button>
+            </div>
+            <div class="description">Update student information</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/students/&lt;student_id&gt;/transfer</div>
+                <button onclick="test('/students/1/transfer', 'POST', {
+                    new_class_id: '2'
+                })">Try It</button>
+            </div>
+            <div class="description">Transfer student to another class</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/students/import</div>
+                <button onclick="test('/students/import', 'POST', {
+                    school_id: '1',
+                    class_id: '1',
+                    students: [
+                        {first_name: 'Emma', last_name: 'Davis', guardian_phone: '08012345678'},
+                        {first_name: 'James', last_name: 'Miller', guardian_phone: '08087654321'}
+                    ]
+                })">Try It</button>
+            </div>
+            <div class="description">Bulk import students (Excel/CSV format)</div>
+        </div>
+    </section>
+
+    <!-- CLASSES - UPDATED PATHS -->
+    <section>
+        <h2>Classes</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/classes</div>
+                <button onclick="test('/classes')">Try It</button>
+            </div>
+            <div class="description">List all classes with filtering</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/classes/&lt;class_id&gt;</div>
+                <button onclick="test('/classes/1')">Try It</button>
+            </div>
+            <div class="description">Get class details with students and subjects</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/classes</div>
+                <button onclick="test('/classes', 'POST', {
+                    school_id: '1',
+                    level: 'JSS 1',
+                    stream: 'A',
+                    academic_session: '2025/2026',
+                    form_teacher_id: '1'
+                })">Try It</button>
+            </div>
+            <div class="description">Create new class</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method put">PUT</span>
+                <div class="url">/classes/&lt;class_id&gt;</div>
+                <button onclick="test('/classes/1', 'PUT', {
+                    stream: 'B',
+                    max_students: 40
+                })">Try It</button>
+            </div>
+            <div class="description">Update class information</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/classes/&lt;class_id&gt;/students</div>
+                <button onclick="test('/classes/1/students')">Try It</button>
+            </div>
+            <div class="description">Get all students in a class</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/classes/&lt;class_id&gt;/subjects</div>
+                <button onclick="test('/classes/1/subjects')">Try It</button>
+            </div>
+            <div class="description">Get all subjects for a class</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method post">POST</span>
+                <div class="url">/classes/&lt;class_id&gt;/assign-form-teacher</div>
+                <button onclick="test('/classes/1/assign-form-teacher', 'POST', {
+                    teacher_id: '2'
+                })">Try It</button>
+            </div>
+            <div class="description">Assign form teacher to class</div>
+        </div>
+    </section>
+
+    <!-- DASHBOARD & UTILITIES -->
+    <section>
+        <h2>Dashboard & Utilities</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/overview/&lt;school_id&gt;</div>
+                <button onclick="test('/overview/1')">Try It</button>
+            </div>
+            <div class="description">Get school dashboard overview</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/teacher/&lt;teacher_id&gt;</div>
+                <button onclick="test('/teacher/1')">Try It</button>
+            </div>
+            <div class="description">Get teacher dashboard</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/school-slug-available</div>
+                <button onclick="test('/school-slug-available?slug=echo-academy')">Try It</button>
+            </div>
+            <div class="description">Check if school slug is available</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/search</div>
+                <button onclick="test('/search?q=john')">Try It</button>
+            </div>
+            <div class="description">Global search across schools, teachers, students</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/states</div>
+                <button onclick="test('/states')">Try It</button>
+            </div>
+            <div class="description">Get list of Nigerian states</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/school-types</div>
+                <button onclick="test('/school-types')">Try It</button>
+            </div>
+            <div class="description">Get available school types</div>
+        </div>
+    </section>
+
+    <!-- SYSTEM & DEBUG -->
+    <section>
+        <h2>System & Debug</h2>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/</div>
+                <button onclick="test('/')">Try It</button>
+            </div>
+            <div class="description">Home page with service info</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/health</div>
+                <button onclick="test('/health')">Try It</button>
+            </div>
+            <div class="description">Health check endpoint</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/api</div>
+                <button onclick="test('/api')">Try It</button>
+            </div>
+            <div class="description">API overview with all endpoints</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/debug/routes</div>
+                <button onclick="test('/debug/routes')">Try It</button>
+            </div>
+            <div class="description">List all API routes (debug)</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/debug/blueprints</div>
+                <button onclick="test('/debug/blueprints')">Try It</button>
+            </div>
+            <div class="description">List all registered blueprints (debug)</div>
+        </div>
+
+        <div class="endpoint">
+            <div class="endpoint-header">
+                <span class="method get">GET</span>
+                <div class="url">/test-auth</div>
+                <button onclick="test('/test-auth')">Try It</button>
+            </div>
+            <div class="description">Test authentication helper</div>
+        </div>
+    </section>
+
+    <pre id="result">Click "Try It" to test endpoints. The response will appear here.</pre>
+
+</main>
+
+<footer>Echo School Platform · API Documentation · Updated for User-First Flow</footer>
+
+<script>
+// Auto-detect current host
+const currentHost = window.location.hostname;
+const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+const BASE = isLocalhost ? 'http://localhost:5000' : 'https://echo-backend.up.railway.app';
+
+// Update displayed base URL
+document.getElementById('base-url').textContent = BASE;
+
+// Store requests history
+let requestHistory = [];
+
+async function test(path, method = 'GET', body = null) {
+    const output = document.getElementById('result');
+    const url = BASE + path;
+    const jwt = document.getElementById('jwtToken').value.trim();
+
+    output.textContent = `📡 ${method} ${url}\n⏳ Requesting...`;
+
+    const options = {
+        method: method,
+        headers: {}
+    };
+
+    // Add JWT token if provided
+    if (jwt) {
+        options.headers['Authorization'] = jwt;
+    }
+
+    // Add body for POST/PUT requests
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(body);
+    }
+
+    try {
+        const startTime = Date.now();
+        const response = await fetch(url, options);
+        const endTime = Date.now();
+        const responseTime = endTime - startTime;
+
+        let data;
+        try {
+            data = await response.json();
+        } catch (e) {
+            data = { error: 'Response is not JSON', text: await response.text() };
+        }
+
+        // Format response
+        const formattedResponse = {
+            status: response.status,
+            statusText: response.statusText,
+            responseTime: `${responseTime}ms`,
+            url: url,
+            method: method,
+            timestamp: new Date().toISOString(),
+            data: data
+        };
+
+        // Store in history
+        requestHistory.unshift(formattedResponse);
+        if (requestHistory.length > 10) requestHistory.pop();
+
+        // Display response
+        output.textContent = JSON.stringify(formattedResponse, null, 2);
+
+        // Add some color coding for status
+        if (response.status >= 200 && response.status < 300) {
+            output.style.borderLeft = '4px solid #10b981';
+        } else if (response.status >= 400 && response.status < 500) {
+            output.style.borderLeft = '4px solid #f59e0b';
+        } else {
+            output.style.borderLeft = '4px solid #ef4444';
+        }
+
+    } catch (error) {
+        output.textContent = `❌ Error: ${error.message}\n\nCheck if:\n1. Server is running (${BASE})\n2. Endpoint exists\n3. CORS is enabled`;
+        output.style.borderLeft = '4px solid #ef4444';
+    }
+}
+
+// Quick test function for simple GET requests
+function quickTest(path) {
+    test(path, 'GET');
+}
+
+// Add keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        document.getElementById('result').textContent = 'Result cleared.';
+        document.getElementById('result').style.borderLeft = '4px solid var(--border)';
+    }
+});
+</script>
+
+</body>
+</html>
