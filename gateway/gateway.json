@@ -1,0 +1,20 @@
+{
+  "name": "echo-gateway",
+  "version": "1.0.0",
+  "description": "API Gateway for Echo Schools Platform",
+  "main": "gateway.js",
+  "scripts": {
+    "start": "node gateway.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "axios": "^1.6.2",
+    "ws": "^8.14.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}
