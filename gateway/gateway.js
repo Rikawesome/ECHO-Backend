@@ -40,8 +40,11 @@ app.use((req, res, next) => {
 // IMPROVED AUTHENTICATION MIDDLEWARE
 // ====================
 const authenticate = (req, res, next) => {
+  // Use req.path for exact path matching without query params
+  const requestPath = req.path;
   const publicPaths = ['/auth/login', '/auth/register', '/health', '/'];
-  if (publicPaths.includes(req.path)) {
+  
+  if (publicPaths.includes(requestPath)) {
     return next();
   }
 
@@ -97,15 +100,16 @@ const wss = new WebSocketServer({ server, path: '/ws' });
 const activeConnections = new Map();
 
 wss.on('connection', (ws, req) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const token = url.searchParams.get('token');
-
-  if (!token) {
-    ws.close(1008, 'No token');
-    return;
-  }
-
   try {
+    // Parse token from query parameters
+    const url = require('url').parse(req.url, true);
+    const token = url.query.token;
+
+    if (!token) {
+      ws.close(1008, 'No token');
+      return;
+    }
+
     const decoded = jwt.verify(token, JWT_SECRET);
     const userId = decoded.userId || decoded.id || decoded.user_id;
     
@@ -117,73 +121,99 @@ wss.on('connection', (ws, req) => {
     activeConnections.set(userId.toString(), ws);
     console.log(`✅ WebSocket: User ${userId} connected`);
 
+    ws.on('message', async (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        console.log(`WebSocket message from ${userId}:`, message);
+        // Basic message handling - can be expanded
+        if (message.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+        }
+      } catch (error) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          error: 'Invalid message format'
+        }));
+      }
+    });
+
     ws.on('close', () => {
       activeConnections.delete(userId.toString());
       console.log(`⚠️ WebSocket: User ${userId} disconnected`);
     });
 
   } catch (error) {
+    console.log('WebSocket auth failed:', error.message);
     ws.close(1008, 'Auth failed');
   }
 });
 
 // ====================
-// CORE PROXY FUNCTION
+// CORE PROXY FUNCTION (FIXED VERSION - NO DEADLOCK)
 // ====================
 const createProxyHandler = (requiresAuth = true) => {
   return async (req, res) => {
     // Apply auth if required
     if (requiresAuth) {
-      const authResult = await new Promise((resolve) => {
-        authenticate(req, res, () => resolve(true));
+      return new Promise((resolve) => {
+        authenticate(req, res, () => {
+          // Authentication succeeded, now proxy the request
+          proxyRequest(req, res).then(resolve).catch(resolve);
+        });
       });
-      if (!authResult) return; // Auth middleware already sent response
-    }
-
-    const targetURL = `${PYTHON_BACKEND}${req.originalUrl}`;
-    
-    try {
-      const response = await axios({
-        method: req.method,
-        url: targetURL,
-        data: req.body,
-        params: req.query,
-        headers: {
-          ...req.headers,
-          'x-user-id': req.user?.id,
-          'x-user-role': req.user?.role,
-          'x-forwarded-by': 'echo-gateway',
-          host: new URL(PYTHON_BACKEND).host
-        },
-        validateStatus: () => true // Pass through all status codes
-      });
-
-      // Forward the response exactly as received
-      res.status(response.status).json(response.data);
-      
-    } catch (error) {
-      console.error(`🔴 Proxy error for ${req.method} ${req.originalUrl}:`, error.message);
-      
-      const status = error.response?.status || 502;
-      const message = error.response?.data?.error || 'Backend service unavailable';
-      
-      res.status(status).json({
-        success: false,
-        error: message,
-        code: 'BACKEND_ERROR',
-        path: req.originalUrl
-      });
+    } else {
+      // No auth required, just proxy
+      await proxyRequest(req, res);
     }
   };
 };
 
+// Helper function to handle the actual proxy request
+async function proxyRequest(req, res) {
+  const targetURL = `${PYTHON_BACKEND}${req.originalUrl}`;
+  
+  try {
+    const response = await axios({
+      method: req.method,
+      url: targetURL,
+      data: req.body,
+      params: req.query,
+      headers: {
+        ...req.headers,
+        'x-user-id': req.user?.id,
+        'x-user-role': req.user?.role,
+        'x-forwarded-by': 'echo-gateway',
+        host: new URL(PYTHON_BACKEND).host
+      },
+      validateStatus: () => true // Pass through all status codes
+    });
+
+    // Forward the response exactly as received
+    res.status(response.status).json(response.data);
+    
+  } catch (error) {
+    console.error(`🔴 Proxy error for ${req.method} ${req.originalUrl}:`, error.message);
+    
+    res.status(502).json({
+      success: false,
+      error: 'Backend service unavailable',
+      code: 'BACKEND_ERROR',
+      path: req.originalUrl
+    });
+  }
+}
+
 // ====================
-// ROUTE DEFINITIONS
+// ROUTE DEFINITIONS (COMPLETE SET)
 // ====================
 
-// Public routes (no auth required)
-app.post('/auth/login', createProxyHandler(false));
-app.post('/auth/register', createProxyHandler(false));
+// Public routes (no auth required) - ALL HTTP METHODS
+app.all('/auth/login', createProxyHandler(false));
+app.all('/auth/register', createProxyHandler(false));
+
+// School onboarding routes (auth required)
+app.all('/schools/join', createProxyHandler(true));
+app.all('/schools/create-and-join', createProxyHandler(true));
 
 // Protected API routes (auth required)
 app.all('/api/schools*', createProxyHandler(true));
@@ -194,46 +224,54 @@ app.all('/api/subjects*', createProxyHandler(true));
 app.all('/api/grades*', createProxyHandler(true));
 app.all('/api/reports*', createProxyHandler(true));
 app.all('/api/payments*', createProxyHandler(true));
-
-// User management (mixed auth - handled in proxy)
 app.all('/api/users*', createProxyHandler(true));
 
+// Catch-all for other /api routes
+app.all('/api/*', createProxyHandler(true));
+
 // ====================
-// HEALTH & INFO ENDPOINTS
+// HEALTH & INFO ENDPOINTS (FIXED - ALWAYS RETURNS 200)
 // ====================
 app.get('/health', async (req, res) => {
+  const healthData = {
+    success: true,
+    service: 'Echo Gateway',
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    websocket: wss.clients.size,
+    environment: process.env.NODE_ENV || 'development',
+    backend: 'checking'
+  };
+  
   try {
-    // Check if Python backend is reachable
-    await axios.get(`${PYTHON_BACKEND}/health`, { timeout: 5000 });
-    
-    res.json({
-      success: true,
-      service: 'Echo Gateway',
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      backend: 'connected',
-      websocket: wss.clients.size,
-      environment: process.env.NODE_ENV || 'development'
-    });
+    // Check backend but don't fail if it's down
+    await axios.get(`${PYTHON_BACKEND}/health`, { timeout: 3000 });
+    healthData.backend = 'connected';
   } catch (error) {
-    res.status(503).json({
-      success: false,
-      service: 'Echo Gateway',
-      status: 'degraded',
-      error: 'Backend unreachable',
-      backend: PYTHON_BACKEND
-    });
+    healthData.backend = 'disconnected';
+    healthData.status = 'degraded';
+    healthData.backendError = error.message;
   }
+  
+  // Always return 200 so Railway doesn't restart us
+  res.status(200).json(healthData);
 });
 
 app.get('/', (req, res) => {
   res.json({
     service: 'Echo Schools Platform Gateway',
-    version: '1.0',
+    version: '1.1',
     status: 'operational',
-    documentation: 'All /api/* routes proxy to Flask backend',
+    documentation: 'Routes proxy to Flask backend',
     endpoints: {
-      auth: ['POST /auth/login', 'POST /auth/register'],
+      auth: [
+        'POST /auth/login',
+        'POST /auth/register'
+      ],
+      schools: [
+        'POST /schools/join (auth required)',
+        'POST /schools/create-and-join (auth required)'
+      ],
       api: [
         '/api/schools/*',
         '/api/classes/*',
@@ -242,21 +280,22 @@ app.get('/', (req, res) => {
         '/api/grades/*',
         '/api/reports/*'
       ],
-      monitoring: 'GET /health'
-    }
+      monitoring: 'GET /health',
+      websocket: 'GET /ws?token=JWT_TOKEN'
+    },
+    note: 'All /api/* routes require Authorization: Bearer <token> header'
   });
 });
 
 // ====================
-// ERROR HANDLER
+// ERROR HANDLER (FIXED - NO req.id)
 // ====================
 app.use((err, req, res, next) => {
-  console.error('🔴 Gateway error:', err.stack);
+  console.error('🔴 Gateway error:', err.stack || err.message);
   res.status(500).json({
     success: false,
     error: 'Internal gateway error',
-    code: 'GATEWAY_ERROR',
-    requestId: req.id
+    code: 'GATEWAY_ERROR'
   });
 });
 
@@ -265,7 +304,12 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: `Route not found: ${req.method} ${req.originalUrl}`,
-    code: 'NOT_FOUND'
+    code: 'NOT_FOUND',
+    suggestions: [
+      'Check the URL path',
+      'Verify the HTTP method (GET, POST, etc.)',
+      'Visit GET / for available endpoints'
+    ]
   });
 });
 
@@ -277,15 +321,16 @@ server.listen(PORT, () => {
   ╔═══════════════════════════════════════╗
   ║       Echo Gateway - PRODUCTION       ║
   ╠═══════════════════════════════════════╣
-  ║  Status:    SECURE & SIMPLIFIED       ║
+  ║  Status:    FIXED & STABLE            ║
   ║  HTTP:      http://localhost:${PORT}      ║
   ║  Backend:   ${PYTHON_BACKEND}  ║
   ║  WebSocket: ws://localhost:${PORT}/ws     ║
   ╚═══════════════════════════════════════╝
   
   ✅ Public routes: /auth/login, /auth/register
+  ✅ School routes: /schools/join, /schools/create-and-join
   ✅ Protected API: All /api/* routes
-  ✅ Health check: GET /health
+  ✅ Health check: GET /health (always returns 200)
   ⚠️  JWT_SECRET: ${JWT_SECRET ? '✓ Set' : '✗ NOT SET - SERVER WILL EXIT'}
   `);
 });
