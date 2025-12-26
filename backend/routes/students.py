@@ -6,7 +6,7 @@ from models.class_model import Class
 
 students_bp = Blueprint('students', __name__)
 
-@students_bp.route('', methods=['GET'])
+@students_bp.route('/', methods=['GET'])
 def get_students():
     """
     Get all students with filtering

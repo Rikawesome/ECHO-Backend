@@ -8,7 +8,7 @@ from models.subject import Subject
 
 classes_bp = Blueprint('classes', __name__)
 
-@classes_bp.route('', methods=['GET'])
+@classes_bp.route('/', methods=['GET'])
 def get_classes():
     """
     Get all classes with filtering

@@ -7,7 +7,7 @@ import uuid
 
 teachers_bp = Blueprint('teachers', __name__)
 
-@teachers_bp.route('', methods=['GET'])
+@teachers_bp.route('/', methods=['GET'])
 def get_teachers():
     """
     Get all teachers with filtering

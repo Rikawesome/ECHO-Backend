@@ -9,7 +9,7 @@ import re
 schools_bp = Blueprint('schools', __name__)
 
 # ============ CREATE SCHOOL ============
-@schools_bp.route('', methods=['POST'])
+@schools_bp.route('/', methods=['POST'])
 def create_school():
     """
     Create a new school
@@ -61,7 +61,7 @@ def create_school():
         return jsonify({'error': str(e)}), 500
 
 # ============ GET ALL SCHOOLS ============
-@schools_bp.route('', methods=['GET'])
+@schools_bp.route('/', methods=['GET'])
 def get_schools():
     """
     Get all schools (with filtering)
