@@ -40,7 +40,7 @@ const axiosInstance = axios.create({
   }),
   maxRedirects: 0,
   headers: {
-    'X-Forwarded-By': 'echo-gateway-v1.5'
+    'X-Forwarded-By': 'echo-gateway-v1.6'
   }
 });
 
@@ -62,12 +62,9 @@ app.use(express.json({
 
 app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 
-// Optimized Request Logger
-const isDevelopment = process.env.NODE_ENV !== 'production';
+// ALWAYS LOG ALL REQUESTS (not just in development)
 app.use((req, res, next) => {
-  if (isDevelopment) {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  }
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
 });
 
@@ -107,8 +104,10 @@ const authenticate = (req, res, next) => {
       schoolId: decoded.school_id || decoded.schoolId
     };
     
+    console.log(`🔐 Auth successful for user: ${req.user.id}, role: ${req.user.role}`);
     next();
   } catch (error) {
+    console.error(`🔐 Auth failed: ${error.message}`);
     const isExpired = error.name === 'TokenExpiredError';
     return res.status(401).json({
       success: false,
@@ -143,9 +142,7 @@ wss.on('connection', (ws, req) => {
     }
 
     activeConnections.set(userId.toString(), ws);
-    if (isDevelopment) {
-      console.log(`✅ WebSocket: User ${userId} connected`);
-    }
+    console.log(`✅ WebSocket: User ${userId} connected`);
 
     ws.on('message', (data) => {
       try {
@@ -166,23 +163,24 @@ wss.on('connection', (ws, req) => {
 
     ws.on('close', () => {
       activeConnections.delete(userId.toString());
-      if (isDevelopment) {
-        console.log(`⚠️ WebSocket: User ${userId} disconnected`);
-      }
+      console.log(`⚠️ WebSocket: User ${userId} disconnected`);
     });
 
   } catch (error) {
+    console.log('WebSocket auth failed:', error.message);
     ws.close(1008, 'Auth failed');
   }
 });
 
 // ====================
-// OPTIMIZED PROXY FUNCTION - FIXED FOR /join TIMEOUT
+// OPTIMIZED PROXY FUNCTION - WITH DEBUG LOGGING
 // ====================
 const createProxyHandler = (requiresAuth = true) => {
   return async (req, res) => {
     const startTime = Date.now();
     const requestId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+    
+    console.log(`[${requestId}] 📥 ENTRY ${req.method} ${req.originalUrl} (requiresAuth: ${requiresAuth})`);
     
     if (requiresAuth) {
       return authenticate(req, res, () => {
@@ -194,12 +192,16 @@ const createProxyHandler = (requiresAuth = true) => {
   };
 };
 
-// Fast proxy request handler - CRITICAL FIXES APPLIED
+// Fast proxy request handler - WITH UNCONDITIONAL LOGGING
 async function handleProxyRequest(req, res, startTime, requestId) {
+  console.log(`[${requestId}] 🚀 START ${req.method} ${req.originalUrl} | Auth: ${req.user ? 'YES' : 'NO'}`);
+  
   try {
-    if (isDevelopment) {
-      console.log(`[${requestId}] 🚀 Proxying ${req.method} ${req.originalUrl} to Flask...`);
-    }
+    console.log(`[${requestId}] 📦 Headers received:`, {
+      'Content-Type': req.headers['content-type'],
+      'Authorization': req.headers['authorization'] ? 'PRESENT' : 'MISSING',
+      'Body-Size': req.body ? JSON.stringify(req.body).length : 0
+    });
     
     // CRITICAL FIX: Simple headers that won't break Flask
     const headers = {
@@ -209,8 +211,10 @@ async function handleProxyRequest(req, res, startTime, requestId) {
       'X-User-Role': req.user?.role || '',
       'X-Request-ID': requestId,
       'Host': new URL(PYTHON_BACKEND).host
-      // REMOVED: 'connection': 'close' - This was causing timeouts!
     };
+    
+    console.log(`[${requestId}] 🔄 Calling Flask: ${req.method} ${req.originalUrl}`);
+    console.log(`[${requestId}] 📤 Headers to Flask:`, JSON.stringify(headers, null, 2));
     
     const response = await axiosInstance({
       method: req.method,
@@ -223,12 +227,7 @@ async function handleProxyRequest(req, res, startTime, requestId) {
 
     const duration = Date.now() - startTime;
     
-    // Log performance
-    if (duration > 1000) {
-      console.warn(`[${requestId}] 🐢 SLOW: ${req.method} ${req.originalUrl} ${response.status} ${duration}ms`);
-    } else if (isDevelopment) {
-      console.log(`[${requestId}] ✅ ${req.method} ${req.originalUrl} ${response.status} ${duration}ms`);
-    }
+    console.log(`[${requestId}] ✅ COMPLETE ${req.method} ${req.originalUrl} ${response.status} ${duration}ms`);
     
     // Forward response
     res.status(response.status).json(response.data);
@@ -236,8 +235,8 @@ async function handleProxyRequest(req, res, startTime, requestId) {
   } catch (error) {
     const duration = Date.now() - startTime;
     
-    console.error(`[${requestId}] 🔴 Proxy error for ${req.method} ${req.originalUrl} (${duration}ms):`, 
-                  error.code || error.message);
+    console.error(`[${requestId}] 🔴 ERROR ${req.method} ${req.originalUrl} (${duration}ms):`, error.code || error.message);
+    console.error(`[${requestId}] Stack trace:`, error.stack);
     
     if (error.code === 'ECONNABORTED') {
       res.status(504).json({
@@ -248,6 +247,7 @@ async function handleProxyRequest(req, res, startTime, requestId) {
         requestId: requestId
       });
     } else if (error.response) {
+      console.error(`[${requestId}] Flask response error:`, error.response.status, error.response.data);
       // Forward error response from backend
       res.status(error.response.status).json(error.response.data);
     } else {
@@ -304,7 +304,7 @@ app.get('/health', async (req, res) => {
   
   const healthData = {
     success: true,
-    service: 'Echo Gateway - Optimized v1.5',
+    service: 'Echo Gateway - Debug v1.6',
     status: 'healthy',
     timestamp: new Date().toISOString(),
     performance: {
@@ -317,7 +317,8 @@ app.get('/health', async (req, res) => {
     fixes: [
       'Removed connection: close header that caused /join timeouts',
       'Simplified proxy headers for Flask compatibility',
-      'Added request tracing for debugging'
+      'Added UNCONDITIONAL logging for debugging',
+      'Always logs all requests regardless of NODE_ENV'
     ]
   };
   
@@ -341,31 +342,11 @@ app.get('/health', async (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     service: 'Echo Schools Platform Gateway',
-    version: '1.5 - Optimized & Fixed',
-    status: 'FIXED - /join timeout issue resolved',
+    version: '1.6 - Debug Version',
+    status: 'ACTIVE DEBUG LOGGING ENABLED',
     performance: 'Connection pooling enabled, 10s timeout',
-    critical_fix: 'Removed problematic connection: close header',
-    endpoints: {
-      auth: ['POST /login', 'POST /register'],
-      schools: [
-        'POST /create-and-join (auth)',
-        'POST /join (auth)',
-        'GET /schools (auth)',
-        'GET /schools/<id> (auth)'
-      ],
-      management: [
-        '/teachers/*',
-        '/students/*', 
-        '/classes/*',
-        '/subjects/*',
-        '/users/*',
-        '/dashboard/*',
-        '/utils/*'
-      ],
-      monitoring: 'GET /health',
-      websocket: 'GET /ws?token=JWT_TOKEN'
-    },
-    note: 'All routes except /login and /register require Authorization: Bearer <token> header'
+    note: 'All routes except /login and /register require Authorization: Bearer <token> header',
+    debug_info: 'UNCONDITIONAL LOGGING ENABLED - Check Railway logs for request details'
   });
 });
 
@@ -373,16 +354,18 @@ app.get('/', (req, res) => {
 // OPTIMIZED ERROR HANDLER
 // ====================
 app.use((err, req, res, next) => {
-  console.error('🔴 Gateway error:', err.message);
+  console.error('🔴 Gateway error:', err.message, err.stack);
   res.status(500).json({
     success: false,
     error: 'Internal gateway error',
-    code: 'GATEWAY_ERROR'
+    code: 'GATEWAY_ERROR',
+    message: err.message
   });
 });
 
 // Fast 404 handler
 app.use((req, res) => {
+  console.log(`❌ 404: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
     error: `Route not found: ${req.method} ${req.originalUrl}`,
@@ -396,9 +379,9 @@ app.use((req, res) => {
 server.listen(PORT, () => {
   console.log(`
   ╔═══════════════════════════════════════╗
-  ║  Echo Gateway - OPTIMIZED v1.5        ║
+  ║  Echo Gateway - DEBUG v1.6           ║
   ╠═══════════════════════════════════════╣
-  ║  Status:    /join TIMEOUT FIXED       ║
+  ║  Status:    UNCONDITIONAL LOGGING    ║
   ║  HTTP:      http://localhost:${PORT}      ║
   ║  Backend:   ${PYTHON_BACKEND}  ║
   ║  WebSocket: ws://localhost:${PORT}/ws     ║
@@ -408,16 +391,17 @@ server.listen(PORT, () => {
   
   ✅ Public routes: /login, /register
   ✅ School creation: /create-and-join (auth)
-  ✅ School join: /join (auth) - FIXED
+  ✅ School join: /join (auth) - DEBUG
   ✅ All other routes: /schools, /teachers, etc.
   ✅ Health check: GET /health
   ⚠️  JWT_SECRET: ${JWT_SECRET ? '✓ Set' : '✗ NOT SET'}
   
-  🔧 Critical fixes applied:
-  • Removed 'connection: close' header (was causing Flask timeouts)
-  • Simplified headers for Flask compatibility
-  • Added request ID tracing for debugging
-  • Enhanced error handling
+  🔍 DEBUG LOGGING ENABLED:
+  • All requests logged regardless of environment
+  • Request ID tracing for each request
+  • Headers and body size logged
+  • Axios call timing and status
+  • Full error stack traces
   `);
 });
 
