@@ -19,7 +19,6 @@ def serialize_subject(s):
     }
 
 @subjects_bp.route('/', methods=['GET'])
-def list_subjects():
     """
     List all subjects with filtering
     """
