@@ -19,8 +19,6 @@ def serialize_subject(s):
     }
 
 @subjects_bp.route('/', methods=['GET'])
-@subjects_bp.route('', methods=['GET'])
-def list_subjects():
     """
     List all subjects with filtering
     """
@@ -112,7 +110,7 @@ def subjects_with_teachers(class_id):
         "data": data
     }), 200
 
-@subjects_bp.route('', methods=['POST'])
+@subjects_bp.route('/', methods=['POST'])
 def create_subject():
     """
     Create new subject
