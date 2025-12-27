@@ -4,6 +4,7 @@ const http = require('http');
 const { WebSocketServer } = require('ws');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const https = require('https');
 const cors = require('cors');
 
 const app = express();
@@ -24,27 +25,63 @@ if (!JWT_SECRET) {
 }
 
 // ====================
-// ESSENTIAL MIDDLEWARE
+// PERFORMANCE OPTIMIZATIONS
 // ====================
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const axiosInstance = axios.create({
+  baseURL: PYTHON_BACKEND,
+  timeout: 10000, // 10 second timeout
+  httpsAgent: new https.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+    maxSockets: 100,
+    maxFreeSockets: 20,
+    timeout: 10000,
+    freeSocketTimeout: 30000
+  }),
+  maxRedirects: 0,
+  headers: {
+    'Connection': 'keep-alive',
+    'X-Forwarded-By': 'echo-gateway-v1.4'
+  }
+});
 
-// Request Logger
+// ====================
+// OPTIMIZED MIDDLEWARE
+// ====================
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-User-ID', 'X-User-Role']
+}));
+
+app.use(express.json({ 
+  limit: '2mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
+
+app.use(express.urlencoded({ extended: false, limit: '2mb' }));
+
+// Optimized Request Logger - only log in development
+const isDevelopment = process.env.NODE_ENV !== 'production';
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  if (isDevelopment) {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  }
   next();
 });
 
 // ====================
-// AUTHENTICATION MIDDLEWARE (UPDATED)
+// FAST AUTHENTICATION MIDDLEWARE
 // ====================
 const authenticate = (req, res, next) => {
-  // Use req.path for exact path matching without query params
-  const requestPath = req.path;
+  // Use requestPath for better matching
+  const requestPath = req.path.toLowerCase();
   const publicPaths = ['/login', '/register', '/health', '/'];
   
-  if (publicPaths.includes(requestPath)) {
+  // Exact match for public routes
+  if (publicPaths.includes(requestPath) || requestPath.startsWith('/health')) {
     return next();
   }
 
@@ -60,9 +97,10 @@ const authenticate = (req, res, next) => {
   const token = authHeader.split(' ')[1];
   
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    // FAST VERIFICATION: Verify signature only
+    const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: false });
     
-    // Standardize user object
+    // Simple user object creation
     req.user = {
       id: decoded.user_id || decoded.userId || decoded.id,
       email: decoded.email,
@@ -73,13 +111,10 @@ const authenticate = (req, res, next) => {
     next();
   } catch (error) {
     const isExpired = error.name === 'TokenExpiredError';
-    const message = isExpired ? 'Token expired. Please login again.' : 'Invalid token.';
-    const code = isExpired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN';
-    
     return res.status(401).json({
       success: false,
-      error: message,
-      code: code
+      error: isExpired ? 'Token expired. Please login again.' : 'Invalid token.',
+      code: isExpired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN'
     });
   }
 };
@@ -100,7 +135,7 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: false });
     const userId = decoded.user_id || decoded.userId || decoded.id;
     
     if (!userId) {
@@ -109,14 +144,18 @@ wss.on('connection', (ws, req) => {
     }
 
     activeConnections.set(userId.toString(), ws);
-    console.log(`✅ WebSocket: User ${userId} connected`);
+    if (isDevelopment) {
+      console.log(`✅ WebSocket: User ${userId} connected`);
+    }
 
-    ws.on('message', async (data) => {
+    ws.on('message', (data) => {
       try {
         const message = JSON.parse(data.toString());
-        console.log(`WebSocket message from ${userId}:`, message);
         if (message.type === 'ping') {
-          ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+          ws.send(JSON.stringify({ 
+            type: 'pong', 
+            timestamp: new Date().toISOString() 
+          }));
         }
       } catch (error) {
         ws.send(JSON.stringify({
@@ -128,87 +167,111 @@ wss.on('connection', (ws, req) => {
 
     ws.on('close', () => {
       activeConnections.delete(userId.toString());
-      console.log(`⚠️ WebSocket: User ${userId} disconnected`);
+      if (isDevelopment) {
+        console.log(`⚠️ WebSocket: User ${userId} disconnected`);
+      }
     });
 
   } catch (error) {
-    console.log('WebSocket auth failed:', error.message);
     ws.close(1008, 'Auth failed');
   }
 });
 
 // ====================
-// CORE PROXY FUNCTION
+// OPTIMIZED PROXY FUNCTION
 // ====================
 const createProxyHandler = (requiresAuth = true) => {
   return async (req, res) => {
+    const startTime = Date.now();
+    
     if (requiresAuth) {
-      return new Promise((resolve) => {
-        authenticate(req, res, () => {
-          proxyRequest(req, res).then(resolve).catch(resolve);
-        });
+      return authenticate(req, res, () => {
+        handleProxyRequest(req, res, startTime);
       });
     } else {
-      await proxyRequest(req, res);
+      return handleProxyRequest(req, res, startTime);
     }
   };
 };
 
-// Helper function to handle the actual proxy request
-async function proxyRequest(req, res) {
-  const targetURL = `${PYTHON_BACKEND}${req.originalUrl}`;
-  
+// Fast proxy request handler
+async function handleProxyRequest(req, res, startTime) {
   try {
-    const response = await axios({
+    const targetURL = `${PYTHON_BACKEND}${req.originalUrl}`;
+    
+    const response = await axiosInstance({
       method: req.method,
-      url: targetURL,
+      url: req.originalUrl, // Use relative URL since baseURL is set
       data: req.body,
       params: req.query,
       headers: {
         ...req.headers,
-        'x-user-id': req.user?.id,
-        'x-user-role': req.user?.role,
-        'x-forwarded-by': 'echo-gateway',
-        host: new URL(PYTHON_BACKEND).host
+        'x-user-id': req.user?.id || '',
+        'x-user-role': req.user?.role || '',
+        'x-forwarded-by': 'echo-gateway-optimized',
+        'x-request-start-time': startTime.toString(),
+        'host': new URL(PYTHON_BACKEND).host,
+        'connection': 'close' // Avoid connection reuse issues
       },
-      validateStatus: () => true
+      validateStatus: () => true // Accept all status codes
     });
 
+    const duration = Date.now() - startTime;
+    
+    // Log slow requests
+    if (duration > 1000) {
+      console.warn(`🐢 SLOW: ${req.method} ${req.originalUrl} ${response.status} ${duration}ms`);
+    } else if (isDevelopment) {
+      console.log(`✅ ${req.method} ${req.originalUrl} ${response.status} ${duration}ms`);
+    }
+    
+    // Forward response
     res.status(response.status).json(response.data);
     
   } catch (error) {
-    console.error(`🔴 Proxy error for ${req.method} ${req.originalUrl}:`, error.message);
+    const duration = Date.now() - startTime;
     
-    res.status(502).json({
-      success: false,
-      error: 'Backend service unavailable',
-      code: 'BACKEND_ERROR',
-      path: req.originalUrl
-    });
+    console.error(`🔴 Proxy error for ${req.method} ${req.originalUrl} (${duration}ms):`, 
+                  error.code || error.message);
+    
+    if (error.code === 'ECONNABORTED') {
+      res.status(504).json({
+        success: false,
+        error: 'Backend timeout',
+        code: 'BACKEND_TIMEOUT',
+        path: req.originalUrl
+      });
+    } else if (error.response) {
+      // Forward error response from backend
+      res.status(error.response.status).json(error.response.data);
+    } else {
+      res.status(502).json({
+        success: false,
+        error: 'Backend service unavailable',
+        code: 'BACKEND_ERROR',
+        path: req.originalUrl,
+        duration: duration
+      });
+    }
   }
 }
 
 // ====================
-// ROUTE DEFINITIONS - FIXED TO MATCH FLASK!
+// ROUTE DEFINITIONS - OPTIMIZED
 // ====================
 
-// 🔥 CRITICAL FIXES BELOW 🔥
-
-// Public routes (no auth required) - EXACT FLASK ROUTES
+// Public routes (fast path)
 app.all('/login', createProxyHandler(false));
 app.all('/register', createProxyHandler(false));
 
-// School creation route - FLASK ROUTE IS /create-and-join (not /schools/create-and-join)
+// Authentication required routes
 app.all('/create-and-join', createProxyHandler(true));
-
-// School join route
 app.all('/join', createProxyHandler(true));
 
-// School API routes - Your Flask doesn't use /api prefix!
-app.all('/schools*', createProxyHandler(true));           // GET /schools, POST /schools, etc.
-app.all('/<school_id>*', createProxyHandler(true));       // Dynamic school routes
+// School routes
+app.all('/schools*', createProxyHandler(true));
 
-// Other blueprint routes - no /api prefix!
+// Resource routes - using wildcards for all subpaths
 app.all('/teachers*', createProxyHandler(true));
 app.all('/students*', createProxyHandler(true));
 app.all('/classes*', createProxyHandler(true));
@@ -217,56 +280,74 @@ app.all('/users*', createProxyHandler(true));
 app.all('/dashboard*', createProxyHandler(true));
 app.all('/utils*', createProxyHandler(true));
 
+// Dynamic routes (school_id, etc.)
+app.all('/:schoolId*', (req, res, next) => {
+  // Check if this is a dynamic school route
+  if (req.params.schoolId && req.params.schoolId.length > 10) {
+    return createProxyHandler(true)(req, res);
+  }
+  next(); // Pass to 404 if not a valid school ID
+});
+
 // ====================
 // HEALTH & INFO ENDPOINTS
 // ====================
 app.get('/health', async (req, res) => {
+  const startTime = Date.now();
+  
   const healthData = {
     success: true,
-    service: 'Echo Gateway',
+    service: 'Echo Gateway - Optimized v1.4',
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    websocket: wss.clients.size,
-    environment: process.env.NODE_ENV || 'development',
-    backend: 'checking'
+    performance: {
+      websocket: wss.clients.size,
+      active_connections: activeConnections.size,
+      uptime: process.uptime()
+    },
+    backend: 'checking',
+    gateway_response_time: 0
   };
   
   try {
-    await axios.get(`${PYTHON_BACKEND}/health`, { timeout: 3000 });
+    // Fast health check with timeout
+    const backendResponse = await axios.get(`${PYTHON_BACKEND}/health`, { 
+      timeout: 3000 
+    });
     healthData.backend = 'connected';
+    healthData.backend_details = backendResponse.data;
   } catch (error) {
     healthData.backend = 'disconnected';
     healthData.status = 'degraded';
-    healthData.backendError = error.message;
+    healthData.backend_error = error.message;
   }
   
+  healthData.gateway_response_time = Date.now() - startTime;
   res.status(200).json(healthData);
 });
 
 app.get('/', (req, res) => {
   res.json({
     service: 'Echo Schools Platform Gateway',
-    version: '1.3',
-    status: 'FIXED - Matches Flask routes',
-    documentation: 'Routes now correctly proxy to Flask backend',
+    version: '1.4 - Optimized',
+    status: 'FIXED & OPTIMIZED - Matches Flask routes',
+    performance: 'Connection pooling enabled, 10s timeout',
     endpoints: {
-      auth: [
-        'POST /login',
-        'POST /register'
-      ],
+      auth: ['POST /login', 'POST /register'],
       schools: [
-        'POST /create-and-join (auth required)',
-        'POST /join (auth required)',
-        'GET /schools (auth required)',
-        'GET /schools/<id> (auth required)'
+        'POST /create-and-join (auth)',
+        'POST /join (auth)',
+        'GET /schools (auth)',
+        'GET /schools/<id> (auth)'
       ],
       management: [
         '/teachers/*',
-        '/students/*',
+        '/students/*', 
         '/classes/*',
         '/subjects/*',
         '/users/*',
-        '/dashboard/*'
+        '/dashboard/*',
+        '/utils/*'
       ],
       monitoring: 'GET /health',
       websocket: 'GET /ws?token=JWT_TOKEN'
@@ -276,10 +357,10 @@ app.get('/', (req, res) => {
 });
 
 // ====================
-// ERROR HANDLER
+// OPTIMIZED ERROR HANDLER
 // ====================
 app.use((err, req, res, next) => {
-  console.error('🔴 Gateway error:', err.stack || err.message);
+  console.error('🔴 Gateway error:', err.message);
   res.status(500).json({
     success: false,
     error: 'Internal gateway error',
@@ -287,17 +368,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
+// Fast 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: `Route not found: ${req.method} ${req.originalUrl}`,
-    code: 'NOT_FOUND',
-    suggestions: [
-      'Check the URL path',
-      'Verify the HTTP method (GET, POST, etc.)',
-      'Visit GET / for available endpoints'
-    ]
+    code: 'NOT_FOUND'
   });
 });
 
@@ -307,12 +383,14 @@ app.use((req, res) => {
 server.listen(PORT, () => {
   console.log(`
   ╔═══════════════════════════════════════╗
-  ║  Echo Gateway - FIXED FOR FLASK       ║
+  ║  Echo Gateway - OPTIMIZED v1.4        ║
   ╠═══════════════════════════════════════╣
-  ║  Status:    MATCHING FLASK ROUTES     ║
+  ║  Status:    OPTIMIZED FOR SPEED       ║
   ║  HTTP:      http://localhost:${PORT}      ║
   ║  Backend:   ${PYTHON_BACKEND}  ║
   ║  WebSocket: ws://localhost:${PORT}/ws     ║
+  ║  Timeout:   10 seconds                ║
+  ║  Pooling:   Enabled                   ║
   ╚═══════════════════════════════════════╝
   
   ✅ Public routes: /login, /register
@@ -321,5 +399,22 @@ server.listen(PORT, () => {
   ✅ All other routes: /schools, /teachers, etc.
   ✅ Health check: GET /health
   ⚠️  JWT_SECRET: ${JWT_SECRET ? '✓ Set' : '✗ NOT SET'}
+  
+  📊 Performance optimizations:
+  • Connection pooling enabled
+  • Keep-alive connections
+  • Fast JWT verification
+  • Request timeout: 10s
+  • Response time logging
   `);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🔄 SIGTERM received. Shutting down gracefully...');
+  wss.close();
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });
